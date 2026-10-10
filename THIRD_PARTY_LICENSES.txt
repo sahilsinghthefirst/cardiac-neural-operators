@@ -1,0 +1,15 @@
+# Third-party software and asset licenses
+
+The release contains source code written for this study, generated numerical results, and figures rendered from those results. It does not redistribute openCARP binaries, external datasets, or third-party paper text.
+
+- openCARP simulator: Academic Public License 1.1 for noncommercial academic use. See `https://opencarp.org/download/license`.
+- carputils: Apache License 2.0.
+- meshalyzer: GNU General Public License version 3.
+- PyTorch: BSD-style license.
+- NumPy: BSD-3-Clause license.
+- pandas: BSD-3-Clause license.
+- SciPy: BSD-3-Clause license.
+- Matplotlib: PSF-based license.
+- scikit-learn: BSD-3-Clause license.
+
+The repository code is released under the MIT License in `LICENSE`. The separately distributed result tables, arrays, and generated figures are released under CC BY 4.0 as stated in the companion archive.

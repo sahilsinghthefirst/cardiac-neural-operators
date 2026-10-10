@@ -1,0 +1,16 @@
+/outputs/
+/figures/
+/data/
+/checkpoints/
+
+.venv/
+venv*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+tmp/
+.DS_Store
+Thumbs.db
+*.log
