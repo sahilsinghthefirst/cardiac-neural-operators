@@ -1,10 +1,3 @@
-                                                  
- 
-                                                                        
-                                                                            
-                                            
-   
-
 from __future__ import annotations
 
 import importlib
@@ -14,7 +7,7 @@ from types import ModuleType
 
 
 def import_torch_prefer_env(project_root: Path, *, log: bool = True) -> ModuleType:
-                                                                                     
+
     used_fallback = False
     try:
         torch = importlib.import_module("torch")
@@ -31,7 +24,7 @@ def import_torch_prefer_env(project_root: Path, *, log: bool = True) -> ModuleTy
 
 
 def log_torch_runtime(torch: ModuleType, *, used_fallback: bool = False) -> None:
-                                                                         
+
     cuda_version = getattr(getattr(torch, "version", None), "cuda", None)
     cuda_available = bool(torch.cuda.is_available())
     msg = (

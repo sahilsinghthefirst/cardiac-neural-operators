@@ -1,5 +1,3 @@
-                                                                          
-
 from __future__ import annotations
 
 import json
@@ -48,10 +46,6 @@ def load_index() -> pd.DataFrame:
 
 def load_descriptors() -> pd.DataFrame:
     return pd.read_csv(FIELD_READY / "direct_descriptors.csv")
-
-
-def check_no_leakage(rows: pd.DataFrame) -> list[str]:
-    return [base for base, sub in rows.groupby("base_sample_id") if sub["split"].nunique() > 1]
 
 
 def load_params(path: str | Path) -> dict:

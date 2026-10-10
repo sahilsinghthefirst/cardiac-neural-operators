@@ -1,14 +1,9 @@
-                                                                   
- 
-                                                                          
-                                                                      
-   
-
 from __future__ import annotations
 
 import csv
 import json
 import math
+import os
 import shutil
 import subprocess
 import time
@@ -21,6 +16,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE_MESH = ROOT / "outputs" / "bocf_data_v0" / "homogeneous_smoke"
+REFERENCE_MESH = Path(os.environ.get("OPENCARP_MESH_PREFIX", "/usr/local/lib/opencarp/share/examples/02_EP_tissue/05B_Cellular_Dynamics_Heterogeneity/TestSlabMesher2D_i"))
 DATASET_BASE = ROOT / "outputs" / "bocf_dataset_v1"
 MODEL = "Bueno"
 FORMULATION = "monodomain"
@@ -65,8 +61,8 @@ def write_elem(path: Path, elems: np.ndarray, tags: np.ndarray) -> None:
 
 def copy_pts_lon(out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(SOURCE_MESH / "mesh.pts", out_dir / "mesh.pts")
-    shutil.copy2(SOURCE_MESH / "mesh.lon", out_dir / "mesh.lon")
+    shutil.copy2(source_mesh_file(".pts"), out_dir / "mesh.pts")
+    shutil.copy2(source_mesh_file(".lon"), out_dir / "mesh.lon")
 
 
 def create_patch_tags(
@@ -394,7 +390,7 @@ def prepare_run_mesh_and_stimulus(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, Path, dict[str, str]]:
     copy_pts_lon(out_dir)
     pts = read_pts(out_dir / "mesh.pts")
-    elems, _old_tags, _types = read_elem(SOURCE_MESH / "mesh.elem")
+    elems, _old_tags, _types = read_elem(source_mesh_file(".elem"))
     tags, _node_mask = create_patch_tags(pts, elems, patch_center, patch_radius)
     write_elem(out_dir / "mesh.elem", elems, tags)
     masks = write_masks(out_dir, pts, elems, tags)
@@ -406,16 +402,6 @@ def prepare_run_mesh_and_stimulus(
 def write_json(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
-
-
-def write_csv(path: Path, rows: list[dict], fieldnames: list[str] | None = None) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if fieldnames is None:
-        fieldnames = list(rows[0].keys()) if rows else []
-    with path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
 
 
 def run_ep_sample(
@@ -522,13 +508,7 @@ def run_conditioned_ep_sample(
     seed: int | None = None,
     force: bool = False,
 ) -> dict:
-                                                                            
- 
-                                                                             
-                                                                               
-                                                                           
-                                               
-       
+
 
     if nbeats <= 1:
         metadata = run_ep_sample(
@@ -671,3 +651,11 @@ def manifest_row(metadata: dict, out_dir: Path) -> dict:
         "output_dir": str(out_dir.relative_to(ROOT)),
         "notes": metadata.get("notes", ""),
     }
+
+
+def source_mesh_file(suffix: str) -> Path:
+    legacy = SOURCE_MESH / f"mesh{suffix}"
+    path = legacy if legacy.exists() else REFERENCE_MESH.with_suffix(suffix)
+    if not path.is_file():
+        raise FileNotFoundError(f"Missing reference mesh {path}; set OPENCARP_MESH_PREFIX to an installed openCARP example mesh prefix")
+    return path

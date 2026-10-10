@@ -1,6 +1,3 @@
-                      
-                                                                 
-
 from __future__ import annotations
 
 import argparse
@@ -32,12 +29,6 @@ if TRAIN_SPEC is None or TRAIN_SPEC.loader is None:
     raise ImportError("Could not load DeepONet training module")
 DEEPO_TRAIN = importlib.util.module_from_spec(TRAIN_SPEC)
 TRAIN_SPEC.loader.exec_module(DEEPO_TRAIN)
-
-DESC_SPEC = importlib.util.spec_from_file_location("_descriptor_deeponet_train", PROJECT_ROOT / "scripts" / "128_train_v1e_500_mlp_descriptor_deeponet_baseline.py")
-if DESC_SPEC is None or DESC_SPEC.loader is None:
-    raise ImportError("Could not load descriptor DeepONet module")
-DESC_TRAIN = importlib.util.module_from_spec(DESC_SPEC)
-DESC_SPEC.loader.exec_module(DESC_TRAIN)
 
 
 OUT_RESULTS = NEURAL_DIR / "deeponet_results.csv"
@@ -152,33 +143,22 @@ def scalar_targets(lat: np.ndarray, apd90: np.ndarray, patch: np.ndarray, valid:
 
 
 def checkpoint_paths() -> list[Path]:
-    paths = sorted(CHECKPOINT_DIR.glob("deeponet_*.pt"))
-    paths.extend(sorted(CHECKPOINT_DIR.glob("descriptor_deeponet_*.pt")))
-    return paths
+    return sorted(path for config in DEEPO_TRAIN.DEEPNET_CONFIGS
+                  if (path := CHECKPOINT_DIR / f"deeponet_{config}.pt").exists())
 
 
 def build_model_from_checkpoint(ckpt: dict, desc_dim: int):
     config = ckpt.get("config", {})
-    if config.get("descriptor_only"):
-        model = DESC_TRAIN.DescriptorDeepONetFieldParametric(
-            int(ckpt.get("descriptor_dim", desc_dim)),
-            basis_dim=int(ckpt["basis_dim"]),
-            branch_latent=int(ckpt["branch_latent"]),
-            trunk_hidden=int(ckpt["trunk_hidden"]),
-            dropout=float(ckpt["dropout"]),
-            fourier_trunk=bool(config.get("fourier", True)),
-        )
-    else:
-        model = DEEPO_TRAIN.DeepONetFieldParametric(
-            int(ckpt["branch_in_channels"]),
-            int(ckpt.get("descriptor_dim", desc_dim)),
-            basis_dim=int(ckpt["basis_dim"]),
-            branch_latent=int(ckpt["branch_latent"]),
-            trunk_hidden=int(ckpt["trunk_hidden"]),
-            dropout=float(ckpt["dropout"]),
-            use_descriptors=bool(config.get("descriptors", False)),
-            fourier_trunk=bool(config.get("fourier", False)),
-        )
+    model = DEEPO_TRAIN.DeepONetFieldParametric(
+        int(ckpt["branch_in_channels"]),
+        int(ckpt.get("descriptor_dim", desc_dim)),
+        basis_dim=int(ckpt["basis_dim"]),
+        branch_latent=int(ckpt["branch_latent"]),
+        trunk_hidden=int(ckpt["trunk_hidden"]),
+        dropout=float(ckpt["dropout"]),
+        use_descriptors=bool(config.get("descriptors", False)),
+        fourier_trunk=bool(config.get("fourier", False)),
+    )
     model.load_state_dict(ckpt["model_state_dict"])
     return model
 

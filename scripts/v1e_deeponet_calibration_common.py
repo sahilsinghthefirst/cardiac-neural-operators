@@ -1,5 +1,3 @@
-                                                                         
-
 from __future__ import annotations
 
 import importlib.util
@@ -25,12 +23,6 @@ if TRAIN_SPEC is None or TRAIN_SPEC.loader is None:
     raise ImportError("Could not load DeepONet training module")
 DEEPO_TRAIN = importlib.util.module_from_spec(TRAIN_SPEC)
 TRAIN_SPEC.loader.exec_module(DEEPO_TRAIN)
-
-DESC_SPEC = importlib.util.spec_from_file_location("_descriptor_deeponet_train", PROJECT_ROOT / "scripts" / "128_train_v1e_500_mlp_descriptor_deeponet_baseline.py")
-if DESC_SPEC is None or DESC_SPEC.loader is None:
-    raise ImportError("Could not load descriptor DeepONet module")
-DESC_TRAIN = importlib.util.module_from_spec(DESC_SPEC)
-DESC_SPEC.loader.exec_module(DESC_TRAIN)
 
 
 CACHE_INDEX = NEURAL_DIR / "deeponet_full_grid_prediction_index.csv"
@@ -156,44 +148,30 @@ def soft_delta(apd90: np.ndarray, prob: np.ndarray, valid: np.ndarray) -> float:
 
 
 def load_checkpoint_paths() -> list[Path]:
-    paths = sorted(CHECKPOINT_DIR.glob("deeponet_*.pt"))
-    paths.extend(sorted(CHECKPOINT_DIR.glob("descriptor_deeponet_*.pt")))
-    return paths
+    return sorted(path for config in DEEPO_TRAIN.DEEPNET_CONFIGS
+                  if (path := CHECKPOINT_DIR / f"deeponet_{config}.pt").exists())
 
 
 def build_model_from_checkpoint(ckpt: dict, desc_dim: int):
     config = ckpt.get("config", {})
-    if config.get("descriptor_only"):
-        model = DESC_TRAIN.DescriptorDeepONetFieldParametric(
-            int(ckpt.get("descriptor_dim", desc_dim)),
-            basis_dim=int(ckpt["basis_dim"]),
-            branch_latent=int(ckpt["branch_latent"]),
-            trunk_hidden=int(ckpt["trunk_hidden"]),
-            dropout=float(ckpt["dropout"]),
-            fourier_trunk=bool(config.get("fourier", True)),
-        )
-    else:
-        model = DEEPO_TRAIN.DeepONetFieldParametric(
-            int(ckpt["branch_in_channels"]),
-            int(ckpt.get("descriptor_dim", desc_dim)),
-            basis_dim=int(ckpt["basis_dim"]),
-            branch_latent=int(ckpt["branch_latent"]),
-            trunk_hidden=int(ckpt["trunk_hidden"]),
-            dropout=float(ckpt["dropout"]),
-            use_descriptors=bool(config.get("descriptors", False)),
-            fourier_trunk=bool(config.get("fourier", False)),
-        )
+    model = DEEPO_TRAIN.DeepONetFieldParametric(
+        int(ckpt["branch_in_channels"]),
+        int(ckpt.get("descriptor_dim", desc_dim)),
+        basis_dim=int(ckpt["basis_dim"]),
+        branch_latent=int(ckpt["branch_latent"]),
+        trunk_hidden=int(ckpt["trunk_hidden"]),
+        dropout=float(ckpt["dropout"]),
+        use_descriptors=bool(config.get("descriptors", False)),
+        fourier_trunk=bool(config.get("fourier", False)),
+    )
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
     return model
 
 
 def load_or_build_full_grid_cache(splits: tuple[str, ...] = ("val", "test"), batch_size: int = 4, force: bool = False):
-                                                              
- 
-                                                                             
-                                                                       
-       
+
+
     if CACHE_INDEX.exists() and CACHE_NPZ.exists() and not force:
         index = pd.read_csv(CACHE_INDEX)
         maps = dict(np.load(CACHE_NPZ))
@@ -310,8 +288,3 @@ def load_or_build_full_grid_cache(splits: tuple[str, ...] = ("val", "test"), bat
         + "\n"
     )
     return index, maps
-
-
-def subset_arrays(index: pd.DataFrame, maps: dict[str, np.ndarray], mask: np.ndarray | pd.Series):
-    idx = np.flatnonzero(np.asarray(mask))
-    return index.iloc[idx].reset_index(drop=True), {k: v[idx] for k, v in maps.items()}

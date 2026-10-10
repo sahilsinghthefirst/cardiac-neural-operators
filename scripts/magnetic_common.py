@@ -1,10 +1,3 @@
-                                                                  
- 
-                                                                                
-                                                                               
-                                                                
-   
-
 from __future__ import annotations
 
 import csv
@@ -42,10 +35,6 @@ class MeshData:
     element_types: list[str]
     coord_scale_to_m: float
     coord_units: str
-
-
-def now_utc() -> str:
-    return datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
 
 def read_pts(path: Path, coord_scale_to_m: float = 1e-6, coord_units: str = "um") -> tuple[np.ndarray, np.ndarray]:
@@ -87,11 +76,8 @@ def load_mesh(ep_dir: Path, coord_scale_to_m: float = 1e-6, coord_units: str = "
 
 
 def triangle_geometry(mesh: MeshData) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-                                                                               
- 
-                                                                       
-                                               
-       
+
+
     tri = mesh.pts_m[mesh.elements]
     p0 = tri[:, 0, :]
     p1 = tri[:, 1, :]
@@ -123,13 +109,12 @@ def triangle_geometry(mesh: MeshData) -> tuple[np.ndarray, np.ndarray, np.ndarra
 
 
 def load_vm_tn(vm_file: Path, node_count: int) -> tuple[np.ndarray, np.ndarray, dict]:
-                                                           
+
     try:
         from carputils.carpio import igb
     except ImportError:
-                                                                              
-                                                                                
-                                                   
+
+
         import sys
 
         root = Path(__file__).resolve().parents[1]
@@ -176,7 +161,7 @@ def _json_safe(value):
 
 
 def compute_element_gradients(vm_tn: np.ndarray, elements: np.ndarray, grad_coeffs: np.ndarray, chunk_size: int = 32) -> np.ndarray:
-                                                                    
+
     out = np.empty((vm_tn.shape[0], elements.shape[0], 3), dtype=np.float32)
     n0 = elements[:, 0]
     n1 = elements[:, 1]
@@ -194,106 +179,3 @@ def compute_element_gradients(vm_tn: np.ndarray, elements: np.ndarray, grad_coef
         )
         out[start:end] = grad.astype(np.float32)
     return out
-
-
-def generate_sensor_grid(mesh: MeshData, nx: int = 8, ny: int = 8, height_m: float = 0.05, margin_fraction: float = 0.1) -> tuple[np.ndarray, dict]:
-    xy_min = mesh.pts_m[:, :2].min(axis=0)
-    xy_max = mesh.pts_m[:, :2].max(axis=0)
-    span = xy_max - xy_min
-    margin = np.where(span > 0, span * margin_fraction, 0.001)
-    xs = np.linspace(xy_min[0] - margin[0], xy_max[0] + margin[0], nx)
-    ys = np.linspace(xy_min[1] - margin[1], xy_max[1] + margin[1], ny)
-    xx, yy = np.meshgrid(xs, ys, indexing="xy")
-    z_plane = float(np.mean(mesh.pts_m[:, 2]))
-    sensors = np.column_stack([xx.ravel(), yy.ravel(), np.full(xx.size, z_plane + height_m)])
-    metadata = {
-        "grid_shape": [nx, ny],
-        "num_sensors": int(sensors.shape[0]),
-        "height_m": float(height_m),
-        "margin_fraction": float(margin_fraction),
-        "measured_component": "Bz",
-        "coordinate_units": "meters_after_um_to_m_conversion",
-        "x_range_m": [float(xs[0]), float(xs[-1])],
-        "y_range_m": [float(ys[0]), float(ys[-1])],
-        "z_m": float(z_plane + height_m),
-    }
-    return sensors.astype(np.float64), metadata
-
-
-def biot_savart_projection(
-    j_te3: np.ndarray,
-    centroids_e3: np.ndarray,
-    areas_e: np.ndarray,
-    sensors_s3: np.ndarray,
-    mu0_over_4pi: float = 1e-7,
-    eps: float = 1e-18,
-) -> np.ndarray:
-                                                                                 
-    r_se3 = sensors_s3[:, None, :] - centroids_e3[None, :, :]
-    r_norm = np.linalg.norm(r_se3, axis=2)
-    weights = areas_e[None, :, None] / (r_norm[:, :, None] ** 3 + eps)
-    kernel = r_se3 * weights
-    b_ts3 = np.empty((j_te3.shape[0], sensors_s3.shape[0], 3), dtype=np.float32)
-    for t_idx in range(j_te3.shape[0]):
-        cross = np.cross(j_te3[t_idx][None, :, :], kernel, axis=2)
-        b_ts3[t_idx] = (mu0_over_4pi * np.sum(cross, axis=1)).astype(np.float32)
-    return b_ts3
-
-
-def compute_mig_curves(b_ts: np.ndarray, times: np.ndarray | None = None, eps: float = 1e-12) -> tuple[list[dict], dict]:
-                                                                                   
-    b = np.asarray(b_ts, dtype=np.float64)
-    mi = np.abs(np.sum(b, axis=1)) / (np.sum(np.abs(b), axis=1) + eps)
-    di = 1.0 - mi
-    rms = np.sqrt(np.mean(b * b, axis=1))
-    if times is None or len(times) != b.shape[0]:
-        times = np.arange(b.shape[0], dtype=float)
-    rows = [
-        {"time": float(t), "MI": float(m), "DI": float(d), "RMS": float(r)}
-        for t, m, d, r in zip(times, mi, di, rms)
-    ]
-    if hasattr(np, "trapezoid"):
-        area_rms = float(np.trapezoid(rms, times))
-    else:
-        area_rms = float(np.trapz(rms, times))
-    summary = {
-        "mean_MI": float(np.mean(mi)),
-        "max_MI": float(np.max(mi)),
-        "mean_DI": float(np.mean(di)),
-        "max_DI": float(np.max(di)),
-        "mean_RMS": float(np.mean(rms)),
-        "max_RMS": float(np.max(rms)),
-        "area_RMS": area_rms,
-        "time_start": float(times[0]) if len(times) else None,
-        "time_end": float(times[-1]) if len(times) else None,
-        "num_time_steps": int(b.shape[0]),
-        "num_sensors": int(b.shape[1]),
-    }
-    return rows, summary
-
-
-def write_csv(path: Path, rows: list[dict], fieldnames: list[str] | None = None) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if fieldnames is None:
-        fieldnames = list(rows[0].keys()) if rows else []
-    with path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
-
-def read_json(path: Path) -> dict:
-    return json.loads(path.read_text())
-
-
-def write_json(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
-
-
-def sim_ep_dir(sim_id: str) -> Path:
-    return EP_BASE / sim_id
-
-
-def sim_mag_dir(sim_id: str) -> Path:
-    return MAG_BASE / sim_id

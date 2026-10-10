@@ -1,5 +1,3 @@
-                                                                              
-
 from __future__ import annotations
 
 import csv
@@ -94,24 +92,6 @@ def json_clean(value):
 def write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(json_clean(payload), indent=2, sort_keys=True) + "\n")
-
-
-def write_csv(path: Path, rows: list[dict], fieldnames: list[str] | None = None) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if fieldnames is None:
-        fieldnames = []
-        for row in rows:
-            for key in row:
-                if key not in fieldnames:
-                    fieldnames.append(key)
-    with path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
-
-def truthy(value) -> bool:
-    return str(value).strip().lower() in {"1", "true", "yes", "y"}
 
 
 def load_node_map(path: Path) -> np.ndarray:

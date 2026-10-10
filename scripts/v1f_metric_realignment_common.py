@@ -1,5 +1,3 @@
-                                                                        
-
 from __future__ import annotations
 
 import json
@@ -40,11 +38,6 @@ def ensure_dirs() -> None:
     V1F_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     V1F_TARGET_DIR.mkdir(parents=True, exist_ok=True)
     V1F_FIG_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def rel(path: Path | str) -> str:
-    path = Path(path)
-    return str(path.relative_to(ROOT)) if path.is_absolute() else str(path)
 
 
 def load_index() -> pd.DataFrame:
@@ -228,78 +221,6 @@ def compute_physiology(row: pd.Series) -> dict:
         "lat_gradient_magnitude": cond_proxy["lat_gradient_magnitude"],
         "scalars": scalars,
     }
-
-
-def center_heatmap_and_distance(patch: np.ndarray, valid: np.ndarray, params: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, float, float]:
-    patch_bool = (patch > 0.5) & valid.astype(bool)
-    h, w = patch.shape
-    if not patch_bool.any():
-        z = np.zeros((h, w), dtype=np.float32)
-        boundary = np.where(valid.astype(bool), 1.0, 0.0).astype(np.float32)
-        return z, z, boundary, math.nan, math.nan, math.nan
-    yy, xx = np.indices(patch.shape)
-    cx = float(params.get("center_x_norm", np.mean(xx[patch_bool]) / max(w - 1, 1))) * max(w - 1, 1)
-    cy = float(params.get("center_y_norm", np.mean(yy[patch_bool]) / max(h - 1, 1))) * max(h - 1, 1)
-    area = float(params.get("patch_area_fraction", np.mean(patch_bool[valid.astype(bool)])))
-    radius_norm = math.sqrt(max(area, 1e-8) / math.pi)
-    sigma = max(radius_norm * max(h, w) * 0.45, 1.5)
-    heat = np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2.0 * sigma * sigma)).astype(np.float32)
-    heat = np.where(valid.astype(bool), heat, 0.0).astype(np.float32)
-
-    dist_in = ndimage.distance_transform_edt(patch_bool)
-    dist_out = ndimage.distance_transform_edt(~patch_bool)
-    signed_px = dist_in - dist_out
-    signed = np.where(valid.astype(bool), signed_px / max(h, w), 0.0).astype(np.float32)
-    boundary = np.where(valid.astype(bool), 1.0 + 4.0 * np.exp(-np.abs(signed_px) / 2.0), 0.0).astype(np.float32)
-    return heat, signed, boundary, cx, cy, sigma
-
-
-def build_multichannel_targets_for_row(row: pd.Series) -> dict:
-    phys = compute_physiology(row)
-    base = str(row["base_sample_id"])
-    out_dir = V1F_TARGET_DIR / base
-    out_dir.mkdir(parents=True, exist_ok=True)
-    params = read_json(row["patch_param_targets_file"])
-    heat, signed, boundary, cx, cy, sigma = center_heatmap_and_distance(phys["patch"], phys["valid"], params)
-    files = {
-        "apd_anomaly_target_file": out_dir / "apd_anomaly_target.npy",
-        "lat_anomaly_target_file": out_dir / "lat_anomaly_target.npy",
-        "generic_patch_mask_file": out_dir / "generic_patch_mask.npy",
-        "center_heatmap_file": out_dir / "center_heatmap.npy",
-        "signed_distance_target_file": out_dir / "signed_distance_target.npy",
-        "boundary_weight_map_file": out_dir / "boundary_weight_map.npy",
-        "valid_mask_file": out_dir / "valid_mask.npy",
-        "local_conduction_slowing_proxy_file": out_dir / "local_conduction_slowing_proxy.npy",
-    }
-    np.save(files["apd_anomaly_target_file"], phys["apd_anomaly"].astype(np.float32))
-    np.save(files["lat_anomaly_target_file"], phys["lat_anomaly"].astype(np.float32))
-    np.save(files["generic_patch_mask_file"], phys["patch"].astype(np.float32))
-    np.save(files["center_heatmap_file"], heat.astype(np.float32))
-    np.save(files["signed_distance_target_file"], signed.astype(np.float32))
-    np.save(files["boundary_weight_map_file"], boundary.astype(np.float32))
-    np.save(files["valid_mask_file"], phys["valid"].astype(np.float32))
-    np.save(files["local_conduction_slowing_proxy_file"], phys["local_conduction_slowing_proxy"].astype(np.float32))
-    scalar_path = out_dir / "scalar_targets.json"
-    scalar_payload = dict(phys["scalars"])
-    scalar_payload.update(
-        {
-            "target_note": "These physiology targets are labels/reporting metadata only, not model inputs.",
-            "condition_label_usage": "Condition label is for reporting and possible future loss weighting only.",
-        }
-    )
-    write_json(scalar_path, scalar_payload)
-    manifest = {
-        "base_sample_id": base,
-        "split": row["split"],
-        "condition": row["condition"],
-        "patch_present": phys["scalars"]["patch_present"],
-        "center_x_px": cx,
-        "center_y_px": cy,
-        "center_sigma_px": sigma,
-        "scalar_targets_file": rel(scalar_path),
-    }
-    manifest.update({k: rel(v) for k, v in files.items()})
-    return manifest
 
 
 def condition_summary(df: pd.DataFrame, value_cols: list[str]) -> pd.DataFrame:

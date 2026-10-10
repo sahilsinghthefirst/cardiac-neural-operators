@@ -1,6 +1,3 @@
-                      
-                                                    
-
 from __future__ import annotations
 
 import argparse
@@ -122,7 +119,7 @@ def scalar_delta(apd90: np.ndarray, mask: np.ndarray, valid: np.ndarray) -> floa
 
 
 class MaskRefineDeepONet(torch.nn.Module):
-                                                                                     
+
 
     def __init__(
         self,

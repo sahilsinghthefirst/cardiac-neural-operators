@@ -1,6 +1,3 @@
-                      
-                                                                     
-
 from __future__ import annotations
 
 import argparse
@@ -22,7 +19,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, f1_score, mean_absolute_error, mean_squared_error, r2_score, roc_auc_score
 
-from fno_elementary_common import FNOBlock2d
+from fno import FNOFieldParametric
 from v1e_500_common import CHECKPOINT_DIR, NEURAL_DIR, NEURAL_FIG_DIR, SEED, require_cuda, write_json
 from v1e_field_data_common import FIELD_NAMES, PARAM_KEYS, compute_stats, load_descriptors, load_index, make_loader, save_stats, scalar_targets_from_fields, torch
 
@@ -109,33 +106,6 @@ def param_mask(cx, cy, radius, present, shape):
     return (((x - np.clip(cx, 0, 1)) ** 2 + (y - np.clip(cy, 0, 1)) ** 2) <= radius**2).astype(np.float32)
 
 
-class FNOFieldParametric(torch.nn.Module):
-    def __init__(self, in_channels: int, desc_dim: int, width: int, modes: int, layers: int, dropout: float, use_descriptors: bool) -> None:
-        super().__init__()
-        self.use_descriptors = use_descriptors
-        self.lift = torch.nn.Conv2d(in_channels, width, 1)
-        self.blocks = torch.nn.ModuleList([FNOBlock2d(width, modes, modes, dropout) for _ in range(layers)])
-        self.field_head = torch.nn.Sequential(torch.nn.Conv2d(width, width, 1), torch.nn.GELU(), torch.nn.Dropout2d(dropout), torch.nn.Conv2d(width, 4, 1))
-        if use_descriptors and desc_dim:
-            self.desc_encoder = torch.nn.Sequential(torch.nn.Linear(desc_dim, 128), torch.nn.GELU(), torch.nn.Dropout(dropout), torch.nn.Linear(128, 64), torch.nn.GELU())
-            head_in = width + 64
-        else:
-            self.desc_encoder = None
-            head_in = width
-        self.param_head = torch.nn.Sequential(torch.nn.Linear(head_in, width), torch.nn.GELU(), torch.nn.Dropout(dropout), torch.nn.Linear(width, len(PARAM_KEYS)))
-        self.area_head = torch.nn.Linear(head_in, 3)
-        self.condition_head = torch.nn.Linear(head_in, 4)
-
-    def forward(self, x, desc=None):
-        h = self.lift(x)
-        for block in self.blocks:
-            h = block(h)
-        pooled = h.mean(dim=(2, 3))
-        if self.desc_encoder is not None and desc is not None and desc.shape[1] > 0:
-            pooled = torch.cat([pooled, self.desc_encoder(desc)], dim=1)
-        return self.field_head(h), self.param_head(pooled), self.area_head(pooled), self.condition_head(pooled)
-
-
 def multitask_loss(field_pred, param_pred, area_logits, cond_logits, batch, stats, weights):
     valid = batch["valid_mask"].to(field_pred.device).float()
     y = batch["y_fields"].to(field_pred.device).float()
@@ -169,7 +139,7 @@ def multitask_loss(field_pred, param_pred, area_logits, cond_logits, batch, stat
                 loss = loss + weights["consistency"] * torch.mean(consistency * consistency)
         loss = loss + weights.get("condition", 0.12) * torch.nn.functional.cross_entropy(cond_logits, batch["condition"].to(field_pred.device))
     if weights.get("scalar", 0.0) > 0:
-                                                                             
+
         apd_pred = field_pred[:, 2]
         apd_true_scale = torch.as_tensor(stats.field_std[2], dtype=torch.float32, device=field_pred.device)
         patch = y[:, 3] > 0.5

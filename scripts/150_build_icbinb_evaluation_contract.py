@@ -1,12 +1,3 @@
-                      
-                                                                 
- 
-                                                                              
-                                                                          
-                                                                         
-                                                
-   
-
 from __future__ import annotations
 
 import csv
@@ -539,12 +530,7 @@ ARTIFACT_SPECS = [
         "purpose": "Numeric, provenance, scope-language, figure-copy, and safety validation for Module 6.",
         "required": False,
     },
-    {
-        "id": "source_module6_bundle_builder",
-        "category": "source_code",
-        "path": Path("scripts/157_build_icbinb_module6_paper_bundle.py"),
-        "purpose": "Deterministic no-training builder and fail-closed validator for the paper evidence bundle.",
-    },
+
     {
         "id": "fno_results",
         "category": "result",
@@ -635,12 +621,7 @@ ARTIFACT_SPECS = [
         "path": V1F_DIR / "oracle_apd_lat_decomposition_summary.json",
         "purpose": "Source summary for the V1F failure-decomposition result.",
     },
-    {
-        "id": "source_fno_evaluator",
-        "category": "source_code",
-        "path": Path("scripts/123_evaluate_v1e_500_field_parametric.py"),
-        "purpose": "Legacy FNO metric implementation for parity checks.",
-    },
+
     {
         "id": "source_deeponet_evaluator",
         "category": "source_code",

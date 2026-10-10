@@ -1,12 +1,3 @@
-                      
-                                                                        
- 
-                                                                             
-                                                                        
-                                                                             
-                                                                    
-   
-
 from __future__ import annotations
 
 import argparse
@@ -25,7 +16,7 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-from fno_elementary_common import FNOBlock2d
+from fno import FNOFieldParametric
 from v1e_field_data_common import (
     PARAM_KEYS,
     FieldStats,
@@ -56,67 +47,6 @@ ARRAY_DTYPES = {
     "pred_apd90": np.float32,
     "pred_patch_prob": np.float32,
 }
-
-
-class FNOFieldParametric(torch.nn.Module):
-                                                                                
-
-    def __init__(
-        self,
-        in_channels: int,
-        desc_dim: int,
-        width: int,
-        modes: int,
-        layers: int,
-        dropout: float,
-        use_descriptors: bool,
-    ) -> None:
-        super().__init__()
-        self.use_descriptors = use_descriptors
-        self.lift = torch.nn.Conv2d(in_channels, width, 1)
-        self.blocks = torch.nn.ModuleList(
-            [FNOBlock2d(width, modes, modes, dropout) for _ in range(layers)]
-        )
-        self.field_head = torch.nn.Sequential(
-            torch.nn.Conv2d(width, width, 1),
-            torch.nn.GELU(),
-            torch.nn.Dropout2d(dropout),
-            torch.nn.Conv2d(width, 4, 1),
-        )
-        if use_descriptors and desc_dim:
-            self.desc_encoder = torch.nn.Sequential(
-                torch.nn.Linear(desc_dim, 128),
-                torch.nn.GELU(),
-                torch.nn.Dropout(dropout),
-                torch.nn.Linear(128, 64),
-                torch.nn.GELU(),
-            )
-            head_in = width + 64
-        else:
-            self.desc_encoder = None
-            head_in = width
-        self.param_head = torch.nn.Sequential(
-            torch.nn.Linear(head_in, width),
-            torch.nn.GELU(),
-            torch.nn.Dropout(dropout),
-            torch.nn.Linear(width, len(PARAM_KEYS)),
-        )
-        self.area_head = torch.nn.Linear(head_in, 3)
-        self.condition_head = torch.nn.Linear(head_in, 4)
-
-    def forward(self, x, desc=None):
-        h = self.lift(x)
-        for block in self.blocks:
-            h = block(h)
-        pooled = h.mean(dim=(2, 3))
-        if self.desc_encoder is not None and desc is not None and desc.shape[1] > 0:
-            pooled = torch.cat([pooled, self.desc_encoder(desc)], dim=1)
-        return (
-            self.field_head(h),
-            self.param_head(pooled),
-            self.area_head(pooled),
-            self.condition_head(pooled),
-        )
 
 
 def read_json(path: Path) -> Any:

@@ -1,12 +1,3 @@
-                      
-                                                       
- 
-                                                                            
-                                                                            
-                                                                             
-                                                                
-   
-
 from __future__ import annotations
 
 import argparse
@@ -118,8 +109,8 @@ def run_prepacing_reference(sample: dict, ref_dir: Path, force: bool) -> dict:
         nbeats=1,
         bcl_ms=DEFAULT_BCL_MS,
     )
-                                                                    
-                                                                   
+
+
     cmd = set_spacedt(cmd, 300)
     start = time.perf_counter()
     result = run_command(cmd, ref_dir, "opencarp_prepacing_reference")

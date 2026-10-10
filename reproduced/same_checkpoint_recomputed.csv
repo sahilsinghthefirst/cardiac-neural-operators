@@ -1,5 +1,0 @@
-scope,model,selection_role,LAT_global_R2,APD90_global_R2,patch_Dice_nonhomogeneous_micro,APD90_patch_delta_R2,degenerate_region_count,n_base_cases,n_nonhomogeneous_cases,threshold,resampling_unit,measurement_variant
-overall,FNO,field_selected,0.9540506569004712,0.9597452506999844,0.5775201047316252,-0.10948303298421846,5,75,63,0.5,base_sample_id,combined_bz_axial
-overall,DeepONet,field_selected,0.9679592199147196,0.9702348303860068,0.5445923764362576,0.09490922111281663,7,75,63,0.5,base_sample_id,combined_bz_axial
-conduction_slowing_perturbation,FNO,field_selected,0.9817734529399873,0.9864726415814488,0.16743023740108287,-0.285871707828552,5,18,18,0.5,base_sample_id,combined_bz_axial
-conduction_slowing_perturbation,DeepONet,field_selected,0.9793500357316122,0.9777471020521561,0.1634695579649708,-0.3758139012153947,5,18,18,0.5,base_sample_id,combined_bz_axial
